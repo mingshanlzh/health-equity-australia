@@ -281,7 +281,7 @@ export default function MembersPage() {
           <label
             htmlFor="search"
             style={{
-              display: 'block",
+              display: 'block',
               marginBottom: '0.5rem',
               color: 'var(--text-heading)',
               fontWeight: 500,
@@ -307,7 +307,7 @@ export default function MembersPage() {
           <label
             htmlFor="affiliation"
             style={{
-              display: 'block",
+              display: 'block',
               marginBottom: '0.5rem',
               color: 'var(--text-heading)',
               fontWeight: 500,
