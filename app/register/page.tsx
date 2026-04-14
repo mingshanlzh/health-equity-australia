@@ -395,7 +395,7 @@ export default function RegisterPage() {
       {/* Registration Form */}
       <div
         style={{
-          maxWidth: [700px",
+          maxWidth: '700px',
           margin: '0 auto',
         }}
       >
@@ -498,7 +498,7 @@ export default function RegisterPage() {
                 }}
               >
                 Password (min 8 characters){' '}
-                <span style={{ color: 'var(--error)) }}>*</span>
+                <span style={{ color: 'var(--error)' }}>*</span>
               </label>
               <input
                 id="password"
@@ -544,7 +544,7 @@ export default function RegisterPage() {
               <label
                 htmlFor="affiliation"
                 style={{
-                  display: 'block",
+                  display: 'block',
                   marginBottom: '0.5rem',
                   color: 'var(--text-heading)',
                   fontWeight: 500,
@@ -596,7 +596,7 @@ export default function RegisterPage() {
               <label
                 htmlFor="researchInterests"
                 style={{
-                  display: 'block",
+                  display: 'block',
                   marginBottom: '0.5rem',
                   color: 'var(--text-heading)',
                   fontWeight: 500,
@@ -621,7 +621,7 @@ export default function RegisterPage() {
               <label
                 htmlFor="bio"
                 style={{
-                  display: 'block",
+                  display: 'block',
                   marginBottom: '0.5rem',
                   color: 'var(--text-heading)',
                   fontWeight: 500,
