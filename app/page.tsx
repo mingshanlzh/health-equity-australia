@@ -12,7 +12,7 @@ import {
   Globe,
   Loader,
 } from 'lucide-react';
-import { supabase } from 'A/lib/supabase';
+import { supabase } from '@/lib/supabase';
 
 interface Stat {
   label: string;
@@ -117,7 +117,7 @@ export default function Home() {
               Health Equity Australia
             </h1>
             <p className="text-xl md:text-2xl mb-8 opacity-95">
-              Advancing health equity research, policy, and practice across Australia â an AHES
+              Advancing health equity research, policy, and practice across Australia — an AHES
               Special Interest Group
             </p>
             <div className="flex flex-col md:flex-row gap-4 justify-center">
