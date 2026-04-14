@@ -120,7 +120,7 @@ export default function LoginPage() {
                   <label
                     htmlFor="email"
                     style={{
-                      display: 'block",
+                      display: 'block',
                       marginBottom: '0.5rem',
                       color: 'var(--text-heading)',
                       fontWeight: 500,
@@ -145,7 +145,7 @@ export default function LoginPage() {
                   <label
                     htmlFor="password"
                     style={{
-                      display: 'block",
+                      display: 'block',
                       marginBottom: '0.5rem',
                       color: 'var(--text-heading)',
                       fontWeight: 500,
@@ -174,7 +174,6 @@ export default function LoginPage() {
                 >
                   {loading ? 'Signing In...' : 'Sign In'}
                 </button>
-
               </form>
 
               <div
@@ -214,7 +213,8 @@ export default function LoginPage() {
                   Forgot password?
                 </button>
               </div>
-            </�
+            </>
+          ) : (
             <>
               {resetSent && (
                 <div
