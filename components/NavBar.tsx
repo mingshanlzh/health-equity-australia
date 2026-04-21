@@ -1,18 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { Menu, X, LogIn, LogOut, Sun, Moon } from 'lucide-react';
+import { Menu, X, LogIn, LogOut } from 'lucide-react';
 
 export function NavBar() {
+  const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<{ email?: string; role?: string } | null>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
   useEffect(() => {
-    const saved = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    if (saved) setTheme(saved);
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         const uid = data.session.user.id;
@@ -22,19 +21,26 @@ export function NavBar() {
           });
       }
     });
-  }, []);
 
-  const toggleTheme = () => {
-    const next = theme === 'light' ? 'dark' : 'light';
-    setTheme(next);
-    localStorage.setItem('theme', next);
-    document.documentElement.setAttribute('data-theme', next);
-  };
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        const uid = session.user.id;
+        supabase.from('user_profiles').select('role').eq('id', uid).single()
+          .then(({ data: p }) => {
+            setUser({ email: session.user.email, role: p?.role ?? 'member' });
+          });
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => listener.subscription.unsubscribe();
+  }, []);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
-    window.location.href = '/';
+    router.push('/');
   };
 
   const links = [
@@ -64,9 +70,6 @@ export function NavBar() {
               {l.label}
             </Link>
           ))}
-          <button onClick={toggleTheme} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: '4px' }}>
-            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
           {user ? (
             <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <LogOut size={14} /> Sign Out
@@ -95,9 +98,6 @@ export function NavBar() {
               </Link>
             ))}
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '0.25rem', paddingTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-              <button onClick={toggleTheme} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                {theme === 'light' ? 'Dark mode' : 'Light mode'}
-              </button>
               {user ? (
                 <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.8rem' }}>
                   Sign Out
