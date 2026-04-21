@@ -56,7 +56,7 @@ export default function MembersPage() {
           .select('role')
           .eq('id', session.user.id)
           .single();
-        if (profile?.role === 'admin') {
+        if (['super_admin', 'co_admin'].includes(profile?.role ?? '')) {
           setIsAdmin(true);
         }
       }
@@ -104,7 +104,7 @@ export default function MembersPage() {
       const { data: memberData, error: memberError } = await supabase
         .from('user_profiles')
         .select('*')
-        .in('role', ['member', 'admin'])
+        .in('role', ['member', 'poster', 'co_admin', 'super_admin'])
         .eq('show_in_directory', true)
         .order('display_name', { ascending: true });
 
@@ -131,7 +131,7 @@ export default function MembersPage() {
       const { count: totalMembers } = await supabase
         .from('user_profiles')
         .select('*', { count: 'exact', head: true })
-        .in('role', ['member', 'admin']);
+        .in('role', ['member', 'poster', 'co_admin', 'super_admin']);
 
       const { count: pendingCount } = await supabase
         .from('user_profiles')
