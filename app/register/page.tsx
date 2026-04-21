@@ -61,7 +61,7 @@ export default function RegisterPage() {
           .select('role')
           .eq('id', session.user.id)
           .single();
-        if (profile?.role === 'admin') {
+        if (['super_admin', 'co_admin'].includes(profile?.role ?? '')) {
           setIsAdmin(true);
           loadPendingApplications();
         }
