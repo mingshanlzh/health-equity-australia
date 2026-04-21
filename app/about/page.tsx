@@ -188,7 +188,68 @@ export default function About() {
         </div>
       </section>
 
-      {/* About the SIG Section */}
+      {/* Convenors Section */}
+      <section className="py-16 md:py-24" style={{ background: 'var(--bg-secondary)' }}>
+        <div className="container">
+          <h2 className="section-title">SIG Convenors</h2>
+          <div className="grid md:grid-cols-3 gap-8 mt-8">
+
+            {/* Anita Lal */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <img
+                src="https://ahes.org.au/wp-content/uploads/2022/10/anita-2.jpg"
+                alt="Dr Anita Lal"
+                style={{ width: '100%', height: '220px', objectFit: 'cover', borderRadius: '0.5rem' }}
+              />
+              <div>
+                <h3 style={{ fontWeight: 700, fontSize: '1.125rem', color: 'var(--text-heading)', marginBottom: '0.25rem' }}>Dr Anita Lal</h3>
+                <p style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>Co-Convenor</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>Deakin Health Economics, Deakin University</p>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-body)', lineHeight: 1.6 }}>
+                  Dr Anita Lal is a Victorian Cancer Agency Early Career Research fellow at Deakin Health Economics, Deakin University. Her PhD, awarded in 2018, examined ways of incorporating equity into cost-effectiveness analysis for obesity prevention policies. Her current research focuses on health-related policies and programs to reduce inequities in healthcare utilisation and the distribution of cancers. Her fellowship, funded by the Victorian Government, is focused on the impacts and cost-effectiveness of targeted programs to increase bowel, breast and cervical cancer screening in under screened culturally and linguistically diverse groups in Victoria. She is a member of the Victorian Comprehensive Cancer Centre Alliance Equity Advisory Group.
+                </p>
+              </div>
+            </div>
+
+            {/* Dennis Petrie */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <img
+                src="https://ahes.org.au/wp-content/uploads/2026/01/Dennis-Petrie.jpg"
+                alt="Professor Dennis Petrie"
+                style={{ width: '100%', height: '220px', objectFit: 'cover', borderRadius: '0.5rem' }}
+              />
+              <div>
+                <h3 style={{ fontWeight: 700, fontSize: '1.125rem', color: 'var(--text-heading)', marginBottom: '0.25rem' }}>Professor Dennis Petrie</h3>
+                <p style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>Co-Convenor</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>Centre for Health Economics, Monash University</p>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-body)', lineHeight: 1.6 }}>
+                  Dennis Petrie is a Professor in the Centre for Health Economics, Monash University. He has published extensively on the economics of illicit drugs, smoking, alcohol, disability, cancer, the longitudinal measurement and evaluation of health inequalities and has led a large number of economic evaluations of healthcare interventions including alongside RCTs. He specialises in analysing large and complex data sets to improve health policy decisions with a focus on reducing health inequities.
+                </p>
+              </div>
+            </div>
+
+            {/* Shan Jiang */}
+            <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <img
+                src="https://ahes.org.au/wp-content/uploads/2026/01/shan-jiang_2024.jpg"
+                alt="Dr Shan Jiang"
+                style={{ width: '100%', height: '220px', objectFit: 'cover', borderRadius: '0.5rem' }}
+              />
+              <div>
+                <h3 style={{ fontWeight: 700, fontSize: '1.125rem', color: 'var(--text-heading)', marginBottom: '0.25rem' }}>Dr Shan Jiang</h3>
+                <p style={{ color: 'var(--accent)', fontWeight: 600, fontSize: '0.875rem', marginBottom: '0.25rem' }}>Co-Convenor</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginBottom: '0.75rem' }}>MUCHE, Macquarie University</p>
+                <p style={{ fontSize: '0.875rem', color: 'var(--text-body)', lineHeight: 1.6 }}>
+                  Dr Shan Jiang is a health economist at MUCHE (Macquarie University Centre for the Health Economy), based in Sydney, Australia. Research focuses on equity-informative economic evaluation, especially distributional cost-effectiveness analysis (DCEA), economic evaluation methodology, and advanced economic evaluation modelling. With 50+ peer-reviewed publications in journals such as JAMA Network Open, Genetics in Medicine, BMJ Global Health, Value in Health, and PharmacoEconomics. One publication was selected as Value in Health Paper of the Year Award (2025). Brocher Foundation Visiting Research Fellow and Adjunct Research Fellow at the Shanghai Health Development Research Center.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+            {/* About the SIG Section */}
       <section className="py-16 md:py-24 bg-white dark:bg-primary">
         <div className="container max-w-3xl">
           <h2 className="section-title">Our Vision</h2>
