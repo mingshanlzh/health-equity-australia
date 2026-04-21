@@ -47,7 +47,7 @@ export default function Home() {
         const { count: memberCount } = await supabase
           .from('user_profiles')
           .select('*', { count: 'exact', head: true })
-          .in('role', ['member', 'admin']);
+          .in('role', ['member', 'poster', 'co_admin', 'super_admin']);
 
         // Fetch seminars count
         const { count: seminarCount } = await supabase
