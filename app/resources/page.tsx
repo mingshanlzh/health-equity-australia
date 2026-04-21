@@ -101,8 +101,7 @@ export default function ResourcesPage() {
       } finally {
         setLoading(false);
       }
-  
-  };
+    };
 
     fetchResources();
   }, []);
