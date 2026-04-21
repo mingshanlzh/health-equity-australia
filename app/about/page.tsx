@@ -49,7 +49,7 @@ export default function About() {
         .eq('id', data.session.user.id)
         .single();
 
-      if (profile?.role === 'admin') setIsAdmin(true);
+      if (['super_admin', 'co_admin'].includes(profile?.role ?? '')) setIsAdmin(true);
     };
 
     checkAdmin();
