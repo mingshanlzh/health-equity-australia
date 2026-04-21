@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, FormEvent, ChangeEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
@@ -10,6 +11,7 @@ interface FormData {
 }
 
 export default function LoginPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState<FormData>({
     email: '',
     password: '',
@@ -47,7 +49,7 @@ export default function LoginPage() {
       }
 
       // Redirect to home page on successful login
-      window.location.href = '/';
+      router.push('/');
     } catch (err) {
       setError('An unexpected error occurred');
       setLoading(false);
