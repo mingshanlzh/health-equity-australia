@@ -39,7 +39,7 @@ export default function FeedbackPage() {
     message: '',
   });
 
-  const isAdmin = userRole === 'admin';
+  const isAdmin = ['super_admin', 'co_admin'].includes(userRole ?? '');
 
   // Initialize auth and prefill user data
   useEffect(() => {
