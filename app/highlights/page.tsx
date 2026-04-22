@@ -55,8 +55,8 @@ export default function HighlightsPage() {
     date: new Date().toISOString().split('T')[0],
   });
 
-  const isAdmin = userRole === 'admin';
-  const isMember = userRole === 'member' || userRole === 'admin';
+  const isAdmin = ['super_admin', 'co_admin'].includes(userRole ?? '');
+  const isMember = ['super_admin', 'co_admin', 'poster', 'member'].includes(userRole ?? '');
 
   // Initialize auth and fetch data
   useEffect(() => {
