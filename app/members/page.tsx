@@ -589,7 +589,8 @@ export default function MembersPage() {
                 style={{ width: '100%' }}
               >
                 <option value="member">Member</option>
-                <option value="admin">Admin</option>
+                <option value="poster">Poster</option>
+                <option value="co_admin">Co-Admin</option>
                 <option value="pending">Pending</option>
                 <option value="rejected">Rejected</option>
               </select>
