@@ -52,7 +52,7 @@ export default function ResourcesPage() {
     link: '',
   });
 
-  const isAdmin = userRole === 'admin';
+  const isAdmin = ['super_admin', 'co_admin'].includes(userRole ?? '');
 
   // Initialize auth
   useEffect(() => {
