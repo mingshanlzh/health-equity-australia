@@ -49,8 +49,8 @@ export default function NoticeboardPage() {
     deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
   });
 
-  const isAdmin = userRole === 'admin';
-  const isMember = userRole === 'member' || userRole === 'admin';
+  const isAdmin = ['super_admin', 'co_admin'].includes(userRole ?? '');
+  const isMember = ['super_admin', 'co_admin', 'poster', 'member'].includes(userRole ?? '');
 
   // Initialize auth
   useEffect(() => {
