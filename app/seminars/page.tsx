@@ -153,7 +153,7 @@ export default function SeminarsPage() {
     loadSeminars();
   }, []);
 
-  const isAdmin = userRole === 'admin';
+  const isAdmin = ['super_admin', 'co_admin'].includes(userRole ?? '');
 
   const filteredSeminars = seminars.filter((s) => s.type === activeTab);
 
