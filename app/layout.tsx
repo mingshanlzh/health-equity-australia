@@ -67,9 +67,9 @@ export default function RootLayout({
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <meta
             name="description"
-            content="Health Equity Australia - Special Interest Group of the Australian Health Economics Society dedicated to advancing health equity research and practice."
+            content="Health Equity Australasia - Special Interest Group of the Australian Health Economics Society dedicated to advancing health equity research and practice."
           />
-          <title>Health Equity Australia</title>
+          <title>Health Equity Australasia</title>
         </head>
         <body className={inter.className}>
           <div role="status" aria-live="polite" className="sr-only">
@@ -87,10 +87,10 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta
           name="description"
-          content="Health Equity Australia - Special Interest Group of the Australian Health Economics Society dedicated to advancing health equity research and practice."
+          content="Health Equity Australasia - Special Interest Group of the Australian Health Economics Society dedicated to advancing health equity research and practice."
         />
         <meta name="theme-color" content="#1B365D" />
-        <title>Health Equity Australia</title>
+        <title>Health Equity Australasia</title>
         {/* Preload theme to prevent flash of unstyled content */}
         <script
           dangerouslySetInnerHTML={{
