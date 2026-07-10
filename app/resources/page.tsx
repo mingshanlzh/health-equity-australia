@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Trash2, Edit2, Download, Github, ExternalLink, Search } from 'lucide-react';
+import { Trash2, Edit2, Download, Github, ExternalLink, Search, Lock } from 'lucide-react';
+import Link from 'next/link';
 
 interface Resource {
   id: string;
@@ -450,7 +451,7 @@ export default function ResourcesPage() {
 
               <div className="card-footer">
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {resource.file_url && (
+                  {userId && resource.file_url && (
                     <a
                       href={resource.file_url}
                       target="_blank"
@@ -461,7 +462,7 @@ export default function ResourcesPage() {
                       Download
                     </a>
                   )}
-                  {resource.github_url && (
+                  {userId && resource.github_url && (
                     <a
                       href={resource.github_url}
                       target="_blank"
@@ -472,7 +473,7 @@ export default function ResourcesPage() {
                       GitHub
                     </a>
                   )}
-                  {resource.link && (
+                  {userId && resource.link && (
                     <a
                       href={resource.link}
                       target="_blank"
@@ -482,6 +483,12 @@ export default function ResourcesPage() {
                       <ExternalLink size={16} />
                       View
                     </a>
+                  )}
+                  {!userId && (
+                    <Link href="/register" className="btn btn-outline btn-sm">
+                      <Lock size={16} />
+                      Register to download
+                    </Link>
                   )}
                 </div>
               </div>
