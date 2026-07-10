@@ -182,7 +182,7 @@ export default function About() {
         <div className="container">
           <h1 className="text-4xl md:text-5xl font-bold mb-6">About the SIG</h1>
           <p className="text-xl max-w-2xl">
-            Health Equity Australia is a Special Interest Group of the Australian Health Economics
+            Health Equity Australasia is a Special Interest Group of the Australian Health Economics
             Society dedicated to advancing health equity research, policy, and practice.
           </p>
         </div>
@@ -254,7 +254,7 @@ export default function About() {
         <div className="container max-w-3xl">
           <h2 className="section-title">Our Vision</h2>
           <p className="mb-6">
-            Health Equity Australia connects researchers, policymakers, and practitioners across
+            Health Equity Australasia connects researchers, policymakers, and practitioners across
             Australia who are committed to understanding and addressing health disparities. We
             operate as a Special Interest Group within the Australian Health Economics Society
             (AHES), leveraging the society's networks while maintaining our distinct focus on
