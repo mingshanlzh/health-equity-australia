@@ -58,7 +58,7 @@ export function NavBar() {
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '3.5rem' }}>
         <Link href="/" style={{ fontWeight: 700, fontSize: '1.1rem', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ background: 'var(--accent)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>HEA</span>
-          <span className="hidden sm:inline">Health Equity Australia</span>
+          <span className="hidden sm:inline">Health Equity Australasia</span>
         </Link>
 
         {/* Desktop links */}
