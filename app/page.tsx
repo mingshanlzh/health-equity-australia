@@ -114,10 +114,10 @@ export default function Home() {
         <div className="container">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-5xl md:text-6xl font-bold mb-6">
-              Health Equity Australia
+              Health Equity Australasia
             </h1>
             <p className="text-xl md:text-2xl mb-8 opacity-95">
-              Advancing health equity research, policy, and practice across Australia — an AHES
+              Advancing health equity research, policy, and practice across Australasia — an AHES
               Special Interest Group
             </p>
             <div className="flex flex-col md:flex-row gap-4 justify-center">
@@ -149,7 +149,7 @@ export default function Home() {
               <h3 className="card-heading">Research</h3>
               <p className="card-text">
                 Fostering collaborative health equity research that generates evidence for policy
-                and practice improvements across Australia.
+                and practice improvements across Australia and New Zealand.
               </p>
             </div>
 
@@ -163,7 +163,7 @@ export default function Home() {
               <h3 className="card-heading">Policy</h3>
               <p className="card-text">
                 Translating evidence into equitable health policy that addresses disparities and
-                improves outcomes for all Australians.
+                improves outcomes for communities across Australia and New Zealand.
               </p>
             </div>
 
@@ -176,7 +176,7 @@ export default function Home() {
               </div>
               <h3 className="card-heading">Community</h3>
               <p className="card-text">
-                Building a vibrant community of practice across Australia, connecting researchers,
+                Building a vibrant community of practice across Australasia, connecting researchers,
                 policymakers, and practitioners.
               </p>
             </div>
@@ -292,7 +292,7 @@ export default function Home() {
           <div className="max-w-2xl mx-auto text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-6">Ready to Join?</h2>
             <p className="text-lg mb-8 opacity-95">
-              Become part of the Health Equity Australia community and contribute to advancing
+              Become part of the Health Equity Australasia community and contribute to advancing
               health equity across the nation.
             </p>
             <Link href="/register" className="btn btn-primary bg-white text-accent hover:bg-opacity-90">
