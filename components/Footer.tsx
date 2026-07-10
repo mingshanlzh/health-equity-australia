@@ -13,7 +13,7 @@ export function Footer() {
           <div>
             <h3 className="font-bold text-lg mb-4">About HEA</h3>
             <p className="text-sm text-gray-300">
-              Health Equity Australia is a Special Interest Group dedicated to advancing health equity research and practice across Australia.
+              Health Equity Australasia is a Special Interest Group dedicated to advancing health equity research and practice across Australia and New Zealand.
             </p>
           </div>
 
@@ -70,7 +70,7 @@ export function Footer() {
         {/* Divider */}
         <div className="border-t border-gray-700 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center text-sm text-gray-400">
-            <p>&copy; {currentYear} Health Equity Australia. All rights reserved.</p>
+            <p>&copy; {currentYear} Health Equity Australasia. All rights reserved.</p>
             <div className="flex gap-6 mt-4 md:mt-0">
               <a href="#" className="hover:text-accent transition">
                 Privacy
