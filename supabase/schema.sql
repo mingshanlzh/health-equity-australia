@@ -1,404 +1,318 @@
--- Health Equity Australia Website - Supabase Schema
--- Created for multi-role user system with RLS policies
+-- ============================================================================
+-- Health Equity Australasia — Supabase schema (v2, full rebuild)
+-- Run this whole script in the Supabase SQL editor. It TEARS DOWN the old
+-- v1 schema and creates the new one. Idempotent: safe to re-run.
+-- ============================================================================
 
--- ============================================================================
--- EXTENSIONS
--- ============================================================================
+-- ---------------------------------------------------------------------------
+-- 0. TEARDOWN of v1 objects
+-- ---------------------------------------------------------------------------
+DROP VIEW IF EXISTS public_profiles;
+DROP TABLE IF EXISTS comments CASCADE;
+DROP TABLE IF EXISTS posts CASCADE;
+DROP TABLE IF EXISTS research_items CASCADE;
+DROP TABLE IF EXISTS contact_messages CASCADE;
+DROP TABLE IF EXISTS profiles CASCADE;
+DROP TABLE IF EXISTS seminar_registrations CASCADE;
+DROP TABLE IF EXISTS member_highlights CASCADE;
+DROP TABLE IF EXISTS noticeboard_items CASCADE;
+DROP TABLE IF EXISTS resources CASCADE;
+DROP TABLE IF EXISTS feedback_messages CASCADE;
+DROP TABLE IF EXISTS committee_members CASCADE;
+DROP TABLE IF EXISTS site_settings CASCADE;
+DROP TABLE IF EXISTS user_profiles CASCADE;
+DROP TABLE IF EXISTS seminars CASCADE;
+DROP TABLE IF EXISTS guest_accounts CASCADE;
+DROP FUNCTION IF EXISTS is_admin() CASCADE;
+DROP FUNCTION IF EXISTS is_member_or_admin() CASCADE;
+DROP FUNCTION IF EXISTS handle_new_user() CASCADE;
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
+-- ---------------------------------------------------------------------------
+-- 1. PROFILES
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  display_name TEXT,
+  email TEXT,
+  role TEXT NOT NULL DEFAULT 'pending'
+    CHECK (role IN ('admin', 'member', 'pending', 'rejected')),
+  affiliation TEXT,
+  position TEXT,
+  country TEXT,
+  bio TEXT,
+  research_interests TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  website TEXT,
+  orcid TEXT,
+  twitter TEXT,
+  linkedin TEXT,
+  avatar_url TEXT,
+  show_in_directory BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 
--- ============================================================================
--- HELPER FUNCTIONS
--- ============================================================================
-
+-- Helper functions (SECURITY DEFINER bypasses RLS -> no policy recursion)
 CREATE OR REPLACE FUNCTION is_admin()
 RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE id = auth.uid()
-    AND role = 'admin'
+  SELECT EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'
   );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 CREATE OR REPLACE FUNCTION is_member_or_admin()
 RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM user_profiles
-    WHERE id = auth.uid()
-    AND role IN ('admin', 'member')
+  SELECT EXISTS (
+    SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('admin','member')
   );
+$$ LANGUAGE sql SECURITY DEFINER STABLE;
+
+-- Create a profile automatically on signup; auto-promote known admin emails.
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, display_name, role)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'display_name', split_part(NEW.email, '@', 1)),
+    CASE
+      WHEN lower(NEW.email) IN ('shan.jiang@mq.edu.au', 'mingshan1018@gmail.com')
+        THEN 'admin'
+      ELSE 'pending'
+    END
+  )
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
--- ============================================================================
--- TABLES
--- ============================================================================
+-- Non-admins must never change their own role.
+CREATE OR REPLACE FUNCTION enforce_role_protection()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.role IS DISTINCT FROM OLD.role AND NOT is_admin() THEN
+    RAISE EXCEPTION 'Only admins can change roles';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- User Profiles (extends auth.users)
-CREATE TABLE IF NOT EXISTS user_profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  display_name TEXT,
-  role TEXT DEFAULT 'pending' CHECK (role IN ('admin', 'member', 'pending', 'rejected')),
-  affiliation TEXT,
-  position TEXT,
-  bio TEXT,
-  research_interests TEXT[] DEFAULT ARRAY[]::TEXT[],
-  website TEXT,
-  show_in_directory BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
+DROP TRIGGER IF EXISTS trg_role_protection ON profiles;
+CREATE TRIGGER trg_role_protection
+  BEFORE UPDATE ON profiles
+  FOR EACH ROW EXECUTE FUNCTION enforce_role_protection();
 
-CREATE INDEX IF NOT EXISTS idx_user_profiles_role ON user_profiles(role);
-CREATE INDEX IF NOT EXISTS idx_user_profiles_show_in_directory ON user_profiles(show_in_directory);
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "profiles_select_self" ON profiles;
+CREATE POLICY "profiles_select_self" ON profiles
+  FOR SELECT USING (id = auth.uid());
 
--- Seminars
+DROP POLICY IF EXISTS "profiles_select_admin" ON profiles;
+CREATE POLICY "profiles_select_admin" ON profiles
+  FOR SELECT USING (is_admin());
+
+DROP POLICY IF EXISTS "profiles_insert_self" ON profiles;
+CREATE POLICY "profiles_insert_self" ON profiles
+  FOR INSERT WITH CHECK (id = auth.uid() AND role = 'pending');
+
+DROP POLICY IF EXISTS "profiles_update_self" ON profiles;
+CREATE POLICY "profiles_update_self" ON profiles
+  FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+DROP POLICY IF EXISTS "profiles_update_admin" ON profiles;
+CREATE POLICY "profiles_update_admin" ON profiles
+  FOR UPDATE USING (is_admin());
+
+-- Public, safe-column view of approved members (owner view bypasses RLS by
+-- design: it exposes ONLY non-sensitive columns of opted-in members).
+DROP VIEW IF EXISTS public_profiles;
+CREATE VIEW public_profiles AS
+  SELECT id, display_name, affiliation, position, country, bio,
+         research_interests, website, orcid, twitter, linkedin,
+         avatar_url, created_at
+  FROM profiles
+  WHERE role IN ('admin', 'member') AND show_in_directory;
+GRANT SELECT ON public_profiles TO anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- 2. SEMINARS
+-- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS seminars (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
   speaker TEXT,
   speaker_affiliation TEXT,
   abstract TEXT,
-  date TIMESTAMPTZ,
+  starts_at TIMESTAMPTZ,
   location TEXT,
-  link TEXT,
-  type TEXT DEFAULT 'upcoming' CHECK (type IN ('upcoming', 'past')),
+  join_url TEXT,
   recording_url TEXT,
   slides_url TEXT,
-  tags TEXT[] DEFAULT ARRAY[]::TEXT[],
-  sort_order INTEGER DEFAULT 0,
-  created_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  created_by UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_seminars_starts_at ON seminars(starts_at);
 
-CREATE INDEX IF NOT EXISTS idx_seminars_type ON seminars(type);
-CREATE INDEX IF NOT EXISTS idx_seminars_date ON seminars(date);
-CREATE INDEX IF NOT EXISTS idx_seminars_created_by ON seminars(created_by);
+ALTER TABLE seminars ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "seminars_select_public" ON seminars;
+CREATE POLICY "seminars_select_public" ON seminars FOR SELECT USING (TRUE);
 
--- Seminar Registrations
-CREATE TABLE IF NOT EXISTS seminar_registrations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  seminar_id UUID NOT NULL REFERENCES seminars(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL,
-  affiliation TEXT,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(seminar_id, email)
-);
+DROP POLICY IF EXISTS "seminars_admin_write" ON seminars;
+CREATE POLICY "seminars_admin_write" ON seminars
+  FOR ALL USING (is_admin()) WITH CHECK (is_admin());
 
-CREATE INDEX IF NOT EXISTS idx_seminar_registrations_seminar_id ON seminar_registrations(seminar_id);
-CREATE INDEX IF NOT EXISTS idx_seminar_registrations_user_id ON seminar_registrations(user_id);
-CREATE INDEX IF NOT EXISTS idx_seminar_registrations_email ON seminar_registrations(email);
-
-
--- Member Highlights
-CREATE TABLE IF NOT EXISTS member_highlights (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  type TEXT DEFAULT 'paper' CHECK (type IN ('paper', 'policy', 'media', 'award', 'other')),
+-- ---------------------------------------------------------------------------
+-- 3. POSTS (blog + noticeboard) and COMMENTS
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
-  description TEXT,
-  link TEXT,
-  date DATE,
-  approved BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  content TEXT NOT NULL DEFAULT '',
+  excerpt TEXT,
+  kind TEXT NOT NULL DEFAULT 'blog' CHECK (kind IN ('blog', 'notice')),
+  tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  published BOOLEAN NOT NULL DEFAULT TRUE,
+  author_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_posts_kind ON posts(kind, published, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_member_highlights_user_id ON member_highlights(user_id);
-CREATE INDEX IF NOT EXISTS idx_member_highlights_approved ON member_highlights(approved);
-CREATE INDEX IF NOT EXISTS idx_member_highlights_type ON member_highlights(type);
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "posts_select_published" ON posts;
+CREATE POLICY "posts_select_published" ON posts
+  FOR SELECT USING (published OR author_id = auth.uid() OR is_admin());
 
--- Noticeboard Items
-CREATE TABLE IF NOT EXISTS noticeboard_items (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+DROP POLICY IF EXISTS "posts_insert_members" ON posts;
+CREATE POLICY "posts_insert_members" ON posts
+  FOR INSERT WITH CHECK (author_id = auth.uid() AND is_member_or_admin());
+
+DROP POLICY IF EXISTS "posts_update_own" ON posts;
+CREATE POLICY "posts_update_own" ON posts
+  FOR UPDATE USING (author_id = auth.uid() OR is_admin());
+
+DROP POLICY IF EXISTS "posts_delete_own" ON posts;
+CREATE POLICY "posts_delete_own" ON posts
+  FOR DELETE USING (author_id = auth.uid() OR is_admin());
+
+CREATE TABLE IF NOT EXISTS comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  author_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id, created_at);
+
+ALTER TABLE comments ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "comments_select_public" ON comments;
+CREATE POLICY "comments_select_public" ON comments FOR SELECT USING (TRUE);
+
+DROP POLICY IF EXISTS "comments_insert_members" ON comments;
+CREATE POLICY "comments_insert_members" ON comments
+  FOR INSERT WITH CHECK (author_id = auth.uid() AND is_member_or_admin());
+
+DROP POLICY IF EXISTS "comments_delete_own" ON comments;
+CREATE POLICY "comments_delete_own" ON comments
+  FOR DELETE USING (author_id = auth.uid() OR is_admin());
+
+-- ---------------------------------------------------------------------------
+-- 4. RESEARCH ITEMS (member-shared publications / projects)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS research_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title TEXT NOT NULL,
-  category TEXT DEFAULT 'opportunity' CHECK (category IN ('funding', 'job', 'event', 'opportunity')),
-  description TEXT,
+  authors TEXT,
+  venue TEXT,
+  year INTEGER,
   link TEXT,
-  deadline DATE,
-  posted_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
-  approved BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  doi TEXT,
+  summary TEXT,
+  tags TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+  author_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE INDEX IF NOT EXISTS idx_research_year ON research_items(year DESC, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_noticeboard_items_category ON noticeboard_items(category);
-CREATE INDEX IF NOT EXISTS idx_noticeboard_items_approved ON noticeboard_items(approved);
-CREATE INDEX IF NOT EXISTS idx_noticeboard_items_posted_by ON noticeboard_items(posted_by);
-CREATE INDEX IF NOT EXISTS idx_noticeboard_items_deadline ON noticeboard_items(deadline);
+ALTER TABLE research_items ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "research_select_public" ON research_items;
+CREATE POLICY "research_select_public" ON research_items FOR SELECT USING (TRUE);
 
--- Resources
-CREATE TABLE IF NOT EXISTS resources (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title TEXT NOT NULL,
-  description TEXT,
-  category TEXT DEFAULT 'data' CHECK (category IN ('data', 'code', 'tool', 'guide', 'other')),
-  file_url TEXT,
-  github_url TEXT,
-  link TEXT,
-  tags TEXT[] DEFAULT ARRAY[]::TEXT[],
-  created_by UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
+DROP POLICY IF EXISTS "research_insert_members" ON research_items;
+CREATE POLICY "research_insert_members" ON research_items
+  FOR INSERT WITH CHECK (author_id = auth.uid() AND is_member_or_admin());
 
-CREATE INDEX IF NOT EXISTS idx_resources_category ON resources(category);
-CREATE INDEX IF NOT EXISTS idx_resources_created_by ON resources(created_by);
+DROP POLICY IF EXISTS "research_update_own" ON research_items;
+CREATE POLICY "research_update_own" ON research_items
+  FOR UPDATE USING (author_id = auth.uid() OR is_admin());
 
+DROP POLICY IF EXISTS "research_delete_own" ON research_items;
+CREATE POLICY "research_delete_own" ON research_items
+  FOR DELETE USING (author_id = auth.uid() OR is_admin());
 
--- Feedback Messages
-CREATE TABLE IF NOT EXISTS feedback_messages (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+-- ---------------------------------------------------------------------------
+-- 5. CONTACT MESSAGES (public contact form)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS contact_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT,
   email TEXT,
-  category TEXT DEFAULT 'suggestion' CHECK (category IN ('suggestion', 'bug', 'content', 'other')),
   message TEXT NOT NULL,
-  read BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_feedback_messages_category ON feedback_messages(category);
-CREATE INDEX IF NOT EXISTS idx_feedback_messages_read ON feedback_messages(read);
-
-
--- Committee Members
-CREATE TABLE IF NOT EXISTS committee_members (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name TEXT NOT NULL,
-  role TEXT,
-  affiliation TEXT,
-  bio TEXT,
-  photo_url TEXT,
-  email TEXT,
-  website TEXT,
-  sort_order INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_committee_members_sort_order ON committee_members(sort_order);
-
-
--- Site Settings
-CREATE TABLE IF NOT EXISTS site_settings (
-  key TEXT PRIMARY KEY,
-  value TEXT,
-  updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-
--- ============================================================================
--- ROW LEVEL SECURITY POLICIES
--- ============================================================================
-
--- Enable RLS on all tables
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE seminars ENABLE ROW LEVEL SECURITY;
-ALTER TABLE seminar_registrations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE member_highlights ENABLE ROW LEVEL SECURITY;
-ALTER TABLE noticeboard_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE resources ENABLE ROW LEVEL SECURITY;
-ALTER TABLE feedback_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE committee_members ENABLE ROW LEVEL SECURITY;
-ALTER TABLE site_settings ENABLE ROW LEVEL SECURITY;
-
-
--- ============================================================================
--- USER_PROFILES RLS POLICIES
--- ============================================================================
-
--- Users can read their own profile, or any profile marked show_in_directory
-CREATE POLICY "user_profiles_select" ON user_profiles
-FOR SELECT USING (
-  auth.uid() = id
-  OR show_in_directory = TRUE
-);
-
--- Users can update their own profile
-CREATE POLICY "user_profiles_update_self" ON user_profiles
-FOR UPDATE USING (auth.uid() = id);
-
--- Admins can do everything
-CREATE POLICY "user_profiles_admin_all" ON user_profiles
-USING (is_admin());
-
-
--- ============================================================================
--- SEMINARS RLS POLICIES
--- ============================================================================
-
--- Public read access
-CREATE POLICY "seminars_select_public" ON seminars
-FOR SELECT USING (TRUE);
-
--- Admins can insert, update, delete
-CREATE POLICY "seminars_admin_insert" ON seminars
-FOR INSERT WITH CHECK (is_admin());
-
-CREATE POLICY "seminars_admin_update" ON seminars
-FOR UPDATE USING (is_admin());
-
-CREATE POLICY "seminars_admin_delete" ON seminars
-FOR DELETE USING (is_admin());
-
-
--- ============================================================================
--- SEMINAR_REGISTRATIONS RLS POLICIES
--- ============================================================================
-
--- Anyone can register (insert)
-CREATE POLICY "seminar_registrations_insert_public" ON seminar_registrations
-FOR INSERT WITH CHECK (TRUE);
-
--- Users can read their own registrations
-CREATE POLICY "seminar_registrations_select_own" ON seminar_registrations
-FOR SELECT USING (auth.uid() = user_id);
-
--- Admins can read all registrations
-CREATE POLICY "seminar_registrations_select_admin" ON seminar_registrations
-FOR SELECT USING (is_admin());
-
--- Admins can update/delete
-CREATE POLICY "seminar_registrations_admin_update" ON seminar_registrations
-FOR UPDATE USING (is_admin());
-
-CREATE POLICY "seminar_registrations_admin_delete" ON seminar_registrations
-FOR DELETE USING (is_admin());
-
-
--- ============================================================================
--- MEMBER_HIGHLIGHTS RLS POLICIES
--- ============================================================================
-
--- Public read approved highlights
-CREATE POLICY "member_highlights_select_public" ON member_highlights
-FOR SELECT USING (approved = TRUE);
-
--- Members can read their own (approved or not)
-CREATE POLICY "member_highlights_select_own" ON member_highlights
-FOR SELECT USING (auth.uid() = user_id);
-
--- Members can insert
-CREATE POLICY "member_highlights_insert_members" ON member_highlights
-FOR INSERT WITH CHECK (is_member_or_admin() AND auth.uid() = user_id);
-
--- Members can update their own
-CREATE POLICY "member_highlights_update_own" ON member_highlights
-FOR UPDATE USING (auth.uid() = user_id);
-
--- Admins can do everything
-CREATE POLICY "member_highlights_admin_select" ON member_highlights
-FOR SELECT USING (is_admin());
-
-CREATE POLICY "member_highlights_admin_update" ON member_highlights
-FOR UPDATE USING (is_admin());
-
-CREATE POLICY "member_highlights_admin_delete" ON member_highlights
-FOR DELETE USING (is_admin());
-
-
--- ============================================================================
--- NOTICEBOARD_ITEMS RLS POLICIES
--- ============================================================================
-
--- Public read approved items
-CREATE POLICY "noticeboard_items_select_public" ON noticeboard_items
-FOR SELECT USING (approved = TRUE);
-
--- Admins can read all
-CREATE POLICY "noticeboard_items_select_admin" ON noticeboard_items
-FOR SELECT USING (is_admin());
-
--- Members can insert
-CREATE POLICY "noticeboard_items_insert_members" ON noticeboard_items
-FOR INSERT WITH CHECK (is_member_or_admin());
-
--- Admins can update/delete
-CREATE POLICY "noticeboard_items_admin_update" ON noticeboard_items
-FOR UPDATE USING (is_admin());
-
-CREATE POLICY "noticeboard_items_admin_delete" ON noticeboard_items
-FOR DELETE USING (is_admin());
-
-
--- ============================================================================
--- RESOURCES RLS POLICIES
--- ============================================================================
-
--- Public read
-CREATE POLICY "resources_select_public" ON resources
-FOR SELECT USING (TRUE);
-
--- Admins can insert, update, delete
-CREATE POLICY "resources_admin_insert" ON resources
-FOR INSERT WITH CHECK (is_admin());
-
-CREATE POLICY "resources_admin_update" ON resources
-FOR UPDATE USING (is_admin());
-
-CREATE POLICY "resources_admin_delete" ON resources
-FOR DELETE USING (is_admin());
-
-
--- ============================================================================
--- FEEDBACK_MESSAGES RLS POLICIES
--- ============================================================================
-
--- Anyone can insert feedback
-CREATE POLICY "feedback_messages_insert_public" ON feedback_messages
-FOR INSERT WITH CHECK (TRUE);
-
--- Admins can read and update
-CREATE POLICY "feedback_messages_select_admin" ON feedback_messages
-FOR SELECT USING (is_admin());
-
-CREATE POLICY "feedback_messages_update_admin" ON feedback_messages
-FOR UPDATE USING (is_admin());
-
-CREATE POLICY "feedback_messages_delete_admin" ON feedback_messages
-FOR DELETE USING (is_admin());
-
-
--- ============================================================================
--- COMMITTEE_MEMBERS RLS POLICIES
--- ============================================================================
-
--- Public read
-CREATE POLICY "committee_members_select_public" ON committee_members
-FOR SELECT USING (TRUE);
-
--- Admins can insert, update, delete
-CREATE POLICY "committee_members_admin_insert" ON committee_members
-FOR INSERT WITH CHECK (is_admin());
-
-CREATE POLICY "committee_members_admin_update" ON committee_members
-FOR UPDATE USING (is_admin());
-
-CREATE POLICY "committee_members_admin_delete" ON committee_members
-FOR DELETE USING (is_admin());
-
-
--- ============================================================================
--- SITE_SETTINGS RLS POLICIES
--- ============================================================================
-
--- Public read
-CREATE POLICY "site_settings_select_public" ON site_settings
-FOR SELECT USING (TRUE);
-
--- Admins can insert, update, delete
-CREATE POLICY "site_settings_admin_insert" ON site_settings
-FOR INSERT WITH CHECK (is_admin());
-
-CREATE POLICY "site_settings_admin_update" ON site_settings
-FOR UPDATE USING (is_admin());
-
-CREATE POLICY "site_settings_admin_delete" ON site_settings
-FOR DELETE USING (is_admin());
+ALTER TABLE contact_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "contact_insert_public" ON contact_messages;
+CREATE POLICY "contact_insert_public" ON contact_messages
+  FOR INSERT WITH CHECK (TRUE);
+
+DROP POLICY IF EXISTS "contact_select_admin" ON contact_messages;
+CREATE POLICY "contact_select_admin" ON contact_messages
+  FOR SELECT USING (is_admin());
+
+DROP POLICY IF EXISTS "contact_delete_admin" ON contact_messages;
+CREATE POLICY "contact_delete_admin" ON contact_messages
+  FOR DELETE USING (is_admin());
+
+-- ---------------------------------------------------------------------------
+-- 6. AVATAR STORAGE
+-- ---------------------------------------------------------------------------
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('avatars', 'avatars', TRUE)
+ON CONFLICT (id) DO NOTHING;
+
+DROP POLICY IF EXISTS "avatars_public_read" ON storage.objects;
+CREATE POLICY "avatars_public_read" ON storage.objects
+  FOR SELECT USING (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "avatars_owner_insert" ON storage.objects;
+CREATE POLICY "avatars_owner_insert" ON storage.objects
+  FOR INSERT TO authenticated
+  WITH CHECK (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "avatars_owner_update" ON storage.objects;
+CREATE POLICY "avatars_owner_update" ON storage.objects
+  FOR UPDATE TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+DROP POLICY IF EXISTS "avatars_owner_delete" ON storage.objects;
+CREATE POLICY "avatars_owner_delete" ON storage.objects
+  FOR DELETE TO authenticated
+  USING (bucket_id = 'avatars' AND (storage.foldername(name))[1] = auth.uid()::text);
+
+-- Done.

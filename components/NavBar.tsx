@@ -1,116 +1,187 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { supabase } from '@/lib/supabase';
-import { Menu, X, LogIn, LogOut } from 'lucide-react';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { Menu, X, LogOut, UserRound, ShieldCheck, PenLine } from "lucide-react";
+import { useTheme } from "next-themes";
+import { Moon, Sun } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import Logo from "@/components/Logo";
+import { useAuth } from "@/lib/auth";
+import { initials } from "@/lib/authors";
+import { cn } from "@/lib/utils";
 
-export function NavBar() {
-  const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ email?: string; role?: string } | null>(null);
+const NAV = [
+  { href: "/", label: "Home" },
+  { href: "/about/", label: "About" },
+  { href: "/seminars/", label: "Seminars" },
+  { href: "/blog/", label: "Blog" },
+  { href: "/research/", label: "Research" },
+  { href: "/members/", label: "Members" },
+  { href: "/noticeboard/", label: "Noticeboard" },
+];
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) {
-        const uid = data.session.user.id;
-        supabase.from('user_profiles').select('role').eq('id', uid).single()
-          .then(({ data: p }) => {
-            setUser({ email: data.session!.user.email, role: p?.role ?? 'member' });
-          });
-      }
-    });
+function ThemeToggle() {
+  const { resolvedTheme, setTheme } = useTheme();
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      aria-label="Toggle theme"
+      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+    >
+      <Sun className="size-4.5 dark:hidden" />
+      <Moon className="size-4.5 hidden dark:block" />
+    </Button>
+  );
+}
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        const uid = session.user.id;
-        supabase.from('user_profiles').select('role').eq('id', uid).single()
-          .then(({ data: p }) => {
-            setUser({ email: session.user.email, role: p?.role ?? 'member' });
-          });
-      } else {
-        setUser(null);
-      }
-    });
+export default function NavBar() {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const { session, profile, isAdmin, signOut } = useAuth();
 
-    return () => listener.subscription.unsubscribe();
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    router.push('/');
-  };
-
-  const links = [
-    { href: '/about', label: 'About' },
-    { href: '/seminars', label: 'Seminars' },
-    { href: '/members', label: 'Members' },
-    { href: '/highlights', label: 'Highlights' },
-    { href: '/noticeboard', label: 'Noticeboard' },
-    { href: '/resources', label: 'Resources' },
-    { href: '/feedback', label: 'Feedback' },
-  ];
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname.startsWith(href.replace(/\/$/, ""));
 
   return (
-    <nav style={{ background: 'var(--secondary)', color: '#fff', position: 'sticky', top: 0, zIndex: 50, boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
-      <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '3.5rem' }}>
-        <Link href="/" style={{ fontWeight: 700, fontSize: '1.1rem', color: '#fff', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ background: 'var(--accent)', borderRadius: '6px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>HEA</span>
-          <span className="hidden sm:inline">Health Equity Australasia</span>
-        </Link>
-
-        {/* Desktop links */}
-        <div className="hidden md:flex" style={{ gap: '1.25rem', alignItems: 'center', fontSize: '0.875rem' }}>
-          {links.map(l => (
-            <Link key={l.href} href={l.href} style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', transition: 'color 0.2s' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.85)')}>
-              {l.label}
-            </Link>
-          ))}
-          {user ? (
-            <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <LogOut size={14} /> Sign Out
-            </button>
-          ) : (
-            <Link href="/login" style={{ background: 'var(--accent)', color: '#fff', borderRadius: '6px', padding: '4px 14px', textDecoration: 'none', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <LogIn size={14} /> Sign In
-            </Link>
-          )}
-        </div>
-
-        {/* Mobile hamburger */}
-        <button className="md:hidden" onClick={() => setMenuOpen(!menuOpen)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }}>
-          {menuOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-      </div>
-
-      {/* Mobile menu */}
-      {menuOpen && (
-        <div className="md:hidden" style={{ background: 'var(--secondary)', borderTop: '1px solid rgba(255,255,255,0.1)', padding: '0.5rem 0' }}>
-          <div className="container" style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            {links.map(l => (
-              <Link key={l.href} href={l.href} onClick={() => setMenuOpen(false)}
-                style={{ color: 'rgba(255,255,255,0.85)', textDecoration: 'none', padding: '0.5rem 0', fontSize: '0.9rem' }}>
-                {l.label}
-              </Link>
-            ))}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: '0.25rem', paddingTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
-              {user ? (
-                <button onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: '6px', padding: '6px 12px', cursor: 'pointer', fontSize: '0.8rem' }}>
-                  Sign Out
-                </button>
-              ) : (
-                <Link href="/login" onClick={() => setMenuOpen(false)} style={{ background: 'var(--accent)', color: '#fff', borderRadius: '6px', padding: '6px 14px', textDecoration: 'none', fontSize: '0.8rem' }}>
-                  Sign In
-                </Link>
-              )}
+    <header className="sticky top-0 z-50 w-full border-b bg-background/80 backdrop-blur-md">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4">
+        <Link href="/" className="flex items-center gap-2.5 text-primary">
+          <Logo />
+          <div className="leading-tight">
+            <div className="font-serif text-[1.05rem] font-bold tracking-tight text-foreground">
+              Health Equity Australasia
+            </div>
+            <div className="text-[0.68rem] font-medium uppercase tracking-widest text-muted-foreground">
+              Health Equity SIG
             </div>
           </div>
+        </Link>
+
+        <nav className="hidden items-center gap-0.5 lg:flex">
+          {NAV.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                "rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                isActive(item.href)
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-1.5">
+          <ThemeToggle />
+          {session && profile ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="rounded-full outline-none ring-ring focus-visible:ring-2" aria-label="Account menu">
+                  <Avatar className="size-9 border">
+                    <AvatarImage src={profile.avatar_url ?? undefined} alt="" />
+                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                      {initials(profile.display_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="flex flex-col gap-1">
+                  <span>{profile.display_name || "My account"}</span>
+                  <Badge
+                    variant={profile.role === "pending" ? "secondary" : "default"}
+                    className="w-fit capitalize"
+                  >
+                    {profile.role}
+                  </Badge>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/account/"><UserRound /> My profile</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/blog/write/"><PenLine /> Write a post</Link>
+                </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/"><ShieldCheck /> Admin panel</Link>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => signOut()}>
+                  <LogOut /> Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="hidden items-center gap-2 sm:flex">
+              <Button variant="ghost" size="sm" asChild>
+                <Link href="/login/">Sign in</Link>
+              </Button>
+              <Button size="sm" asChild>
+                <Link href="/register/">Join us</Link>
+              </Button>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            aria-label="Open menu"
+            onClick={() => setOpen(!open)}
+          >
+            {open ? <X className="size-5" /> : <Menu className="size-5" />}
+          </Button>
         </div>
+      </div>
+
+      {open && (
+        <nav className="border-t bg-background px-4 py-3 lg:hidden">
+          <div className="flex flex-col gap-1">
+            {NAV.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setOpen(false)}
+                className={cn(
+                  "rounded-md px-3 py-2.5 text-sm font-medium",
+                  isActive(item.href)
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                {item.label}
+              </Link>
+            ))}
+            {!session && (
+              <div className="mt-2 flex gap-2">
+                <Button variant="outline" className="flex-1" asChild>
+                  <Link href="/login/" onClick={() => setOpen(false)}>Sign in</Link>
+                </Button>
+                <Button className="flex-1" asChild>
+                  <Link href="/register/" onClick={() => setOpen(false)}>Join us</Link>
+                </Button>
+              </div>
+            )}
+          </div>
+        </nav>
       )}
-    </nav>
+    </header>
   );
 }

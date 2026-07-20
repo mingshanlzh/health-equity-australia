@@ -1,88 +1,57 @@
-'use client';
+import Link from "next/link";
+import Logo from "@/components/Logo";
 
-import Link from 'next/link';
-
-export function Footer() {
-  const currentYear = new Date().getFullYear();
-
+export default function Footer() {
   return (
-    <footer className="bg-secondary text-white mt-16">
-      <div className="container py-12">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-          {/* About */}
-          <div>
-            <h3 className="font-bold text-lg mb-4">About HEA</h3>
-            <p className="text-sm text-gray-300">
-              Health Equity Australasia is a Special Interest Group dedicated to advancing health equity research and practice across Australia and New Zealand.
+    <footer className="border-t bg-muted/40">
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        <div className="grid gap-10 md:grid-cols-3">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2.5 text-primary">
+              <Logo size={30} />
+              <span className="font-serif text-base font-bold text-foreground">
+                Health Equity Australasia
+              </span>
+            </div>
+            <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">
+              A community of researchers, practitioners and students advancing
+              health equity research across Australia, Aotearoa New Zealand and
+              beyond.
             </p>
           </div>
-
-          {/* Quick Links */}
-          <div>
-            <h3 className="font-bold text-lg mb-4">Quick Links</h3>
-            <ul className="text-sm space-y-2">
-              <li>
-                <Link href="/about" className="text-gray-300 hover:text-accent transition">
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link href="/members" className="text-gray-300 hover:text-accent transition">
-                  Members
-                </Link>
-              </li>
-              <li>
-                <Link href="/seminars" className="text-gray-300 hover:text-accent transition">
-                  Seminars
-                </Link>
-              </li>
-              <li>
-                <Link href="/resources" className="text-gray-300 hover:text-accent transition">
-                  Resources
-                </Link>
-              </li>
-            </ul>
-          </div>
-
-          {/* Contact */}
-          <div>
-            <h3 className="font-bold text-lg mb-4">Get Involved</h3>
-            <ul className="text-sm space-y-2">
-              <li>
-                <Link href="/register" className="text-gray-300 hover:text-accent transition">
-                  Register
-                </Link>
-              </li>
-              <li>
-                <Link href="/feedback" className="text-gray-300 hover:text-accent transition">
-                  Feedback
-                </Link>
-              </li>
-              <li>
-                <Link href="/login" className="text-gray-300 hover:text-accent transition">
-                  Login
-                </Link>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div className="border-t border-gray-700 pt-8">
-          <div className="flex flex-col md:flex-row justify-between items-center text-sm text-gray-400">
-            <p>&copy; {currentYear} Health Equity Australasia. All rights reserved.</p>
-            <div className="flex gap-6 mt-4 md:mt-0">
-              <a href="#" className="hover:text-accent transition">
-                Privacy
-              </a>
-              <a href="#" className="hover:text-accent transition">
-                Terms
-              </a>
-              <a href="#" className="hover:text-accent transition">
-                Contact
-              </a>
+          <div className="grid grid-cols-2 gap-8 text-sm">
+            <div className="space-y-2.5">
+              <div className="font-semibold">Explore</div>
+              <ul className="space-y-2 text-muted-foreground">
+                <li><Link className="hover:text-foreground" href="/about/">About the SIG</Link></li>
+                <li><Link className="hover:text-foreground" href="/seminars/">Seminar series</Link></li>
+                <li><Link className="hover:text-foreground" href="/blog/">Blog</Link></li>
+                <li><Link className="hover:text-foreground" href="/research/">Member research</Link></li>
+              </ul>
+            </div>
+            <div className="space-y-2.5">
+              <div className="font-semibold">Community</div>
+              <ul className="space-y-2 text-muted-foreground">
+                <li><Link className="hover:text-foreground" href="/members/">Member directory</Link></li>
+                <li><Link className="hover:text-foreground" href="/noticeboard/">Noticeboard</Link></li>
+                <li><Link className="hover:text-foreground" href="/register/">Become a member</Link></li>
+                <li><Link className="hover:text-foreground" href="/about/#contact">Contact us</Link></li>
+              </ul>
             </div>
           </div>
+          <div className="space-y-3 text-sm text-muted-foreground">
+            <div className="font-semibold text-foreground">Acknowledgement</div>
+            <p className="leading-relaxed">
+              We acknowledge the Traditional Custodians of the lands on which we
+              live and work across Australia, and Māori as tangata whenua of
+              Aotearoa New Zealand. We pay our respects to Elders past and
+              present, and are committed to equity in health for all peoples.
+            </p>
+          </div>
+        </div>
+        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t pt-6 text-xs text-muted-foreground sm:flex-row">
+          <span>© {new Date().getFullYear()} Health Equity Australasia — Health Equity Special Interest Group</span>
+          <span>Built with Next.js &amp; Supabase</span>
         </div>
       </div>
     </footer>

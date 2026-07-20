@@ -1,625 +1,224 @@
-'use client';
+"use client";
 
-import { useState, useEffect, ChangeEvent } from 'react';
-import { supabase } from '@/lib/supabase';
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  ExternalLink,
+  Globe,
+  Linkedin,
+  MapPin,
+  Search,
+  Users,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { supabase } from "@/lib/supabase";
+import { initials } from "@/lib/authors";
 
-interface UserProfile {
+interface DirectoryProfile {
   id: string;
-  display_name: string;
-  affiliation: string;
+  display_name: string | null;
+  affiliation: string | null;
   position: string | null;
-  research_interests: string[] | null;
+  country: string | null;
   bio: string | null;
+  research_interests: string[];
   website: string | null;
-  show_in_directory: boolean;
-  role: string;
-}
-
-interface Stats {
-  totalMembers: number;
-  pendingApplications: number;
+  orcid: string | null;
+  twitter: string | null;
+  linkedin: string | null;
+  avatar_url: string | null;
 }
 
 export default function MembersPage() {
-  const [members, setMembers] = useState<UserProfile[]>([]);
-  const [filteredMembers, setFilteredMembers] = useState<UserProfile[]>([]);
-  const [stats, setStats] = useState<Stats>({ totalMembers: 0, pendingApplications: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string>('');
-  const [currentUser, setCurrentUser] = useState<{ id: string } | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [members, setMembers] = useState<DirectoryProfile[] | null>(null);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<DirectoryProfile | null>(null);
 
-  // Search and filter states
-  const [searchTerm, setSearchTerm] = useState('');
-  const [affiliationFilter, setAffiliationFilter] = useState('all');
-  const [affiliations, setAffiliations] = useState<string[]>([]);
-
-  // Expanded bios state
-  const [expandedBios, setExpandedBios] = useState<Set<string>>(new Set());
-
-  // Modal state for editing role
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<UserProfile | null>(null);
-  const [newRole, setNewRole] = useState('');
-
-  // Check current user and load data
   useEffect(() => {
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (session?.user) {
-        setCurrentUser(session.user);
-        // Check if user is admin
-        const { data: profile } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('id', session.user.id)
-          .single();
-        if (['super_admin', 'co_admin'].includes(profile?.role ?? '')) {
-          setIsAdmin(true);
-        }
-      }
-      await loadMembers();
-    };
-    checkAuth();
+    supabase
+      .from("public_profiles")
+      .select("*")
+      .order("display_name", { ascending: true })
+      .then(({ data }) => setMembers((data as DirectoryProfile[]) ?? []));
   }, []);
 
-  // Filter members when search or affiliation changes
-  useEffect(() => {
-    let filtered = members;
-
-    // Search filter
-    if (searchTerm.trim()) {
-      const lowerSearch = searchTerm.toLowerCase();
-      filtered = filtered.filter((member) => {
-        const name = (member.display_name || '').toLowerCase();
-        const affiliation = (member.affiliation || '').toLowerCase();
-        const interests = (member.research_interests || [])
-          .join(', ')
-          .toLowerCase();
-        return (
-          name.includes(lowerSearch) ||
-          affiliation.includes(lowerSearch) ||
-          interests.includes(lowerSearch)
-        );
-      });
-    }
-
-    // Affiliation filter
-    if (affiliationFilter !== 'all') {
-      filtered = filtered.filter(
-        (member) => member.affiliation === affiliationFilter
-      );
-    }
-
-    setFilteredMembers(filtered);
-  }, [searchTerm, affiliationFilter, members]);
-
-  const loadMembers = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      // Load approved members
-      const { data: memberData, error: memberError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .in('role', ['member', 'poster', 'co_admin', 'super_admin'])
-        .eq('show_in_directory', true)
-        .order('display_name', { ascending: true });
-
-      if (memberError) {
-        setError('Failed to load members');
-        setLoading(false);
-        return;
-      }
-
-      setMembers(memberData || []);
-      setFilteredMembers(memberData || []);
-
-      // Extract unique affiliations
-      const uniqueAffiliations = Array.from(
-        new Set(
-          (memberData || [])
-            .map((m) => m.affiliation)
-            .filter((a) => a && a.length > 0)
-        )
-      ).sort() as string[];
-      setAffiliations(uniqueAffiliations);
-
-      // Load stats
-      const { count: totalMembers } = await supabase
-        .from('user_profiles')
-        .select('*', { count: 'exact', head: true })
-        .in('role', ['member', 'poster', 'co_admin', 'super_admin']);
-
-      const { count: pendingCount } = await supabase
-        .from('user_profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', 'pending');
-
-      setStats({
-        totalMembers: totalMembers || 0,
-        pendingApplications: pendingCount || 0,
-      });
-    } catch (err) {
-      setError('An error occurred while loading members');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const toggleBioExpanded = (memberId: string) => {
-    const newExpanded = new Set(expandedBios);
-    if (newExpanded.has(memberId)) {
-      newExpanded.delete(memberId);
-    } else {
-      newExpanded.add(memberId);
-    }
-    setExpandedBios(newExpanded);
-  };
-
-  const handleEditRole = (member: UserProfile) => {
-    setSelectedMember(member);
-    setNewRole(member.role);
-    setModalOpen(true);
-  };
-
-  const handleSaveRole = async () => {
-    if (!selectedMember) return;
-
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ role: newRole })
-        .eq('id', selectedMember.id);
-
-      if (error) {
-        setError('Failed to update role');
-        return;
-      }
-
-      await loadMembers();
-      setModalOpen(false);
-      setSelectedMember(null);
-    } catch (err) {
-      setError('An error occurred while updating role');
-      console.error(err);
-    }
-  };
-
-  const handleRemoveFromDirectory = async (memberId: string) => {
-    if (!confirm('Remove this member from the directory?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({ show_in_directory: false })
-        .eq('id', memberId);
-
-      if (error) {
-        setError('Failed to remove member');
-        return;
-      }
-
-      await loadMembers();
-    } catch (err) {
-      setError('An error occurred while removing member');
-      console.error(err);
-    }
-  };
+  const q = query.toLowerCase();
+  const filtered = (members ?? []).filter(
+    (m) =>
+      !q ||
+      (m.display_name ?? "").toLowerCase().includes(q) ||
+      (m.affiliation ?? "").toLowerCase().includes(q) ||
+      (m.country ?? "").toLowerCase().includes(q) ||
+      m.research_interests.some((i) => i.toLowerCase().includes(q))
+  );
 
   return (
-    <div className="container" style={{ padding: '2rem 1rem' }}>
-      {/* Stats Section */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1.5rem',
-          marginBottom: '2rem',
-        }}
-      >
-        <div className="card" style={{ textAlign: 'center' }}>
-          <div
-            style={{
-              fontSize: '2.5rem',
-              fontWeight: 700,
-              color: 'var(--accent)',
-              marginBottom: '0.5rem',
-            }}
-          >
-            {stats.totalMembers}
-          </div>
-          <div
-            style={{
-              color: 'var(--text-muted)',
-              fontSize: '0.875rem',
-              fontWeight: 500,
-            }}
-          >
-            Total Members
-          </div>
+    <div className="mx-auto max-w-6xl px-4 py-14">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="flex items-center gap-2.5 text-3xl font-bold sm:text-4xl">
+            <Users className="size-8 text-primary" /> Member directory
+          </h1>
+          <p className="mt-3 max-w-2xl leading-relaxed text-muted-foreground">
+            Meet the researchers, practitioners and students in our community.
+          </p>
         </div>
-        {isAdmin && (
-          <div className="card" style={{ textAlign: 'center' }}>
-            <div
-              style={{
-                fontSize: '2.5rem',
-                fontWeight: 700,
-                color: 'var(--secondary)',
-                marginBottom: '0.5rem',
-              }}
-            >
-              {stats.pendingApplications}
-            </div>
-            <div
-              style={{
-                color: 'var(--text-muted)',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-              }}
-            >
-              Pending Applications
-            </div>
-          </div>
+        <Button asChild variant="outline">
+          <Link href="/register/">Join the directory</Link>
+        </Button>
+      </div>
+
+      <div className="relative mt-8 w-full max-w-sm">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input className="pl-9" placeholder="Search name, affiliation, interests…" value={query} onChange={(e) => setQuery(e.target.value)} />
+      </div>
+
+      <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {members === null ? (
+          <>
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-48 w-full" />
+            <Skeleton className="h-48 w-full" />
+          </>
+        ) : filtered.length === 0 ? (
+          <Card className="sm:col-span-2 lg:col-span-3">
+            <CardHeader>
+              <CardDescription className="py-6 text-center">
+                {members.length === 0
+                  ? "The directory is just getting started — be the first to join!"
+                  : "No members match your search."}
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        ) : (
+          filtered.map((m) => (
+            <button key={m.id} onClick={() => setSelected(m)} className="text-left">
+              <Card className="h-full transition-all hover:-translate-y-1 hover:shadow-md">
+                <CardHeader>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="size-14 border">
+                      <AvatarImage src={m.avatar_url ?? undefined} alt="" />
+                      <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                        {initials(m.display_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <CardTitle className="truncate text-base">
+                        {m.display_name || "SIG member"}
+                      </CardTitle>
+                      <CardDescription className="truncate">
+                        {[m.position, m.affiliation].filter(Boolean).join(", ")}
+                      </CardDescription>
+                      {m.country && (
+                        <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="size-3" /> {m.country}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                {m.research_interests.length > 0 && (
+                  <CardContent className="flex flex-wrap gap-1.5">
+                    {m.research_interests.slice(0, 4).map((i) => (
+                      <Badge key={i} variant="secondary" className="font-normal">
+                        {i}
+                      </Badge>
+                    ))}
+                    {m.research_interests.length > 4 && (
+                      <Badge variant="outline" className="font-normal">
+                        +{m.research_interests.length - 4}
+                      </Badge>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            </button>
+          ))
         )}
       </div>
 
-      {/* Search and Filter Bar */}
-      <div
-        className="card"
-        style={{
-          marginBottom: '2rem',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: '1rem',
-        }}
-      >
-        <div>
-          <label
-            htmlFor="search"
-            style={{
-              display: 'block',
-              marginBottom: '0.5rem',
-              color: 'var(--text-heading)',
-              fontWeight: 500,
-              fontSize: '0.875rem',
-            }}
-          >
-            Search
-          </label>
-          <input
-            id="search"
-            type="text"
-            value={searchTerm}
-            onChange={(e: ChangeEvent<HTMLInputElement>) =>
-              setSearchTerm(e.target.value)
-            }
-            placeholder="Search by name, affiliation, or interests..."
-            className="input"
-            style={{ width: '100%' }}
-          />
-        </div>
-
-        <div>
-          <label
-            htmlFor="affiliation"
-            style={{
-              display: 'block',
-              marginBottom: '0.5rem',
-              color: 'var(--text-heading)',
-              fontWeight: 500,
-              fontSize: '0.875rem',
-            }}
-          >
-            Filter by Affiliation
-          </label>
-          <select
-            id="affiliation"
-            value={affiliationFilter}
-            onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-              setAffiliationFilter(e.target.value)
-            }
-            className="input"
-            style={{ width: '100%' }}
-          >
-            <option value="all">All Affiliations</option>
-            {affiliations.map((aff) => (
-              <option key={aff} value={aff}>
-                {aff}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {error && (
-        <div
-          style={{
-            backgroundColor: 'var(--error)',
-            color: 'white',
-            padding: '1rem',
-            borderRadius: '0.375rem',
-            marginBottom: '1.5rem',
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Members Grid */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <p>Loading members...</p>
-        </div>
-      ) : filteredMembers.length > 0 ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
-            gap: '1.5rem',
-          }}
-        >
-          {filteredMembers.map((member) => {
-            const isBioExpanded = expandedBios.has(member.id);
-            const bioPreview = member.bio
-              ? member.bio.substring(0, 150)
-              : '';
-            const shouldShowExpandButton =
-              member.bio && member.bio.length > 150;
-
-            return (
-              <div key={member.id} className="card">
-                {/* Member Name */}
-                <h3
-                  style={{
-                    fontSize: '1.25rem',
-                    fontWeight: 700,
-                    color: 'var(--text-heading)',
-                    marginBottom: '0.5rem',
-                  }}
-                >
-                  {member.display_name}
-                </h3>
-
-                {/* Position and Affiliation */}
-                {(member.position || member.affiliation) && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    {member.position && (
-                      <div
-                        style={{
-                          fontSize: '0.875rem',
-                          color: 'var(--text-body)',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {member.position}
-                      </div>
-                    )}
-                    {member.affiliation && (
-                      <div
-                        style={{
-                          fontSize: '0.875rem',
-                          color: 'var(--text-muted)',
-                        }}
-                      >
-                        {member.affiliation}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Research Interests Tags */}
-                {member.research_interests &&
-                  member.research_interests.length > 0 && (
-                    <div style={{ marginBottom: '1rem' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          flexWrap: 'wrap',
-                          gap: '0.5rem',
-                        }}
-                      >
-                        {member.research_interests.map((interest, idx) => (
-                          <span
-                            key={idx}
-                            className="tag"
-                            style={{
-                              backgroundColor: 'var(--accent-bg)',
-                              color: 'var(--accent)',
-                              padding: '0.25rem 0.75rem',
-                              borderRadius: '0.25rem',
-                              fontSize: '0.75rem',
-                              fontWeight: 500,
-                            }}
-                          >
-                            {interest}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                {/* Bio */}
-                {member.bio && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <p
-                      style={{
-                        fontSize: '0.875rem',
-                        color: 'var(--text-body)',
-                        margin: 0,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      {isBioExpanded ? member.bio : bioPreview}
-                      {!isBioExpanded && member.bio.length > 150 && '...'}
+      {/* Profile dialog */}
+      <Dialog open={!!selected} onOpenChange={(o) => !o && setSelected(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          {selected && (
+            <>
+              <DialogHeader>
+                <div className="flex items-center gap-4">
+                  <Avatar className="size-16 border">
+                    <AvatarImage src={selected.avatar_url ?? undefined} alt="" />
+                    <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
+                      {initials(selected.display_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <DialogTitle className="text-xl">
+                      {selected.display_name || "SIG member"}
+                    </DialogTitle>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {[selected.position, selected.affiliation, selected.country]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
-                    {shouldShowExpandButton && (
-                      <button
-                        onClick={() => toggleBioExpanded(member.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--accent)',
-                          cursor: 'pointer',
-                          fontSize: '0.875rem',
-                          fontWeight: 500,
-                          marginTop: '0.5rem',
-                          padding: 0,
-                        }}
-                      >
-                        {isBioExpanded ? 'Show less' : 'Show more'}
-                      </button>
-                    )}
                   </div>
-                )}
-
-                {/* Website Link */}
-                {member.website && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <a
-                      href={member.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        fontSize: '0.875rem',
-                        color: 'var(--accent)',
-                        textDecoration: 'none',
-                        wordBreak: 'break-all',
-                      }}
-                    >
-                      {member.website}
+                </div>
+              </DialogHeader>
+              {selected.bio && (
+                <p className="whitespace-pre-line text-sm leading-relaxed">{selected.bio}</p>
+              )}
+              {selected.research_interests.length > 0 && (
+                <div>
+                  <div className="mb-2 text-sm font-semibold">Research interests</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selected.research_interests.map((i) => (
+                      <Badge key={i} variant="secondary" className="font-normal">{i}</Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {selected.website && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={selected.website} target="_blank" rel="noreferrer">
+                      <Globe className="size-4" /> Website
                     </a>
-                  </div>
+                  </Button>
                 )}
-
-                {/* Admin Controls */}
-                {isAdmin && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      marginTop: '1.5rem',
-                      paddingTop: '1rem',
-                      borderTop: '1px solid var(--border)',
-                    }}
-                  >
-                    <button
-                      onClick={() => handleEditRole(member)}
-                      className="btn btn-outline"
-                      style={{ flex: 1, fontSize: '0.75rem', padding: '0.5rem' }}
-                    >
-                      Edit Role
-                    </button>
-                    <button
-                      onClick={() => handleRemoveFromDirectory(member.id)}
-                      className="btn btn-danger"
-                      style={{ flex: 1, fontSize: '0.75rem', padding: '0.5rem' }}
-                    >
-                      Remove
-                    </button>
-                  </div>
+                {selected.orcid && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={`https://orcid.org/${selected.orcid.replace(/^https?:\/\/orcid\.org\//, "")}`} target="_blank" rel="noreferrer">
+                      <ExternalLink className="size-4" /> ORCID
+                    </a>
+                  </Button>
+                )}
+                {selected.linkedin && (
+                  <Button size="sm" variant="outline" asChild>
+                    <a href={selected.linkedin} target="_blank" rel="noreferrer">
+                      <Linkedin className="size-4" /> LinkedIn
+                    </a>
+                  </Button>
                 )}
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div
-          className="card"
-          style={{
-            textAlign: 'center',
-            padding: '3rem 1rem',
-          }}
-        >
-          <p style={{ color: 'var(--text-muted)' }}>
-            {searchTerm || affiliationFilter !== 'all'
-              ? 'No members match your search criteria.'
-              : 'No members in the directory yet.'}
-          </p>
-        </div>
-      )}
-
-      {/* Edit Role Modal */}
-      {modalOpen && selectedMember && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => setModalOpen(false)}
-        >
-          <div
-            className="card"
-            style={{ maxWidth: '400px', width: '90%' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="section-title">Edit Member Role</h2>
-            <p style={{ marginBottom: '1.5rem', color: 'var(--text-body)' }}>
-              {selectedMember.display_name}
-            </p>
-
-            <div style={{ marginBottom: '1.5rem' }}>
-              <label
-                htmlFor="role"
-                style={{
-                  display: 'block',
-                  marginBottom: '0.5rem',
-                  color: 'var(--text-heading)',
-                  fontWeight: 500,
-                }}
-              >
-                Role
-              </label>
-              <select
-                id="role"
-                value={newRole}
-                onChange={(e) => setNewRole(e.target.value)}
-                className="input"
-                style={{ width: '100%' }}
-              >
-                <option value="member">Member</option>
-                <option value="poster">Poster</option>
-                <option value="co_admin">Co-Admin</option>
-                <option value="pending">Pending</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                gap: '1rem',
-              }}
-            >
-              <button
-                onClick={handleSaveRole}
-                className="btn btn-primary"
-                style={{ flex: 1 }}
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="btn btn-outline"
-                style={{ flex: 1 }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

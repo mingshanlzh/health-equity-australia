@@ -1,16 +1,14 @@
 import type { NextConfig } from "next";
 
-// This repo is served by GitHub Pages under the "/health-equity-australia"
-// sub-path, so basePath MUST be that path or every asset 404s.
-// When a dedicated custom domain is attached (served at the root), set the
-// env var NEXT_PUBLIC_BASE_PATH="" to override this default back to empty.
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "/health-equity-australia";
+// Served by GitHub Pages under "/health-equity-australasia".
+// If a custom domain is attached later (served at the root), set
+// NEXT_PUBLIC_BASE_PATH="" at build time to override.
+const basePath =
+  process.env.NEXT_PUBLIC_BASE_PATH ?? "/health-equity-australasia";
 
 const nextConfig: NextConfig = {
   output: "export",
-  images: {
-    unoptimized: true,
-  },
+  images: { unoptimized: true },
   basePath,
   assetPrefix: basePath || undefined,
   trailingSlash: true,
