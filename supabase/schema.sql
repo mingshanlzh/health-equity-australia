@@ -94,10 +94,16 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
--- Non-admins must never change their own role.
+-- Non-admins must never change their own role. The founding account
+-- (mingshan1018@gmail.com) is a permanent super-admin: it can never be
+-- demoted, by anyone.
 CREATE OR REPLACE FUNCTION enforce_role_protection()
 RETURNS TRIGGER AS $$
 BEGIN
+  IF lower(coalesce(OLD.email, '')) = 'mingshan1018@gmail.com' THEN
+    NEW.role := 'admin';
+    RETURN NEW;
+  END IF;
   IF NEW.role IS DISTINCT FROM OLD.role AND NOT is_admin() THEN
     RAISE EXCEPTION 'Only admins can change roles';
   END IF;

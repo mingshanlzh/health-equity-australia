@@ -25,6 +25,30 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/lib/supabase";
 
+const CONVENORS = [
+  {
+    name: "Dr Anita Lal",
+    role: "Co-Convenor",
+    affiliation: "Deakin Health Economics, Deakin University",
+    photo: "https://ahes.org.au/wp-content/uploads/2022/10/anita-2.jpg",
+    bio: "Dr Anita Lal is a Victorian Cancer Agency Early Career Research fellow at Deakin Health Economics, Deakin University. Her PhD, awarded in 2018, examined ways of incorporating equity into cost-effectiveness analysis for obesity prevention policies. Her current research focuses on health-related policies and programs to reduce inequities in healthcare utilisation and the distribution of cancers. Her fellowship, funded by the Victorian Government, is focused on the impacts and cost-effectiveness of targeted programs to increase bowel, breast and cervical cancer screening in under-screened culturally and linguistically diverse groups in Victoria. She is a member of the Victorian Comprehensive Cancer Centre Alliance Equity Advisory Group.",
+  },
+  {
+    name: "Professor Dennis Petrie",
+    role: "Co-Convenor",
+    affiliation: "Centre for Health Economics, Monash University",
+    photo: "https://ahes.org.au/wp-content/uploads/2026/01/Dennis-Petrie.jpg",
+    bio: "Dennis Petrie is a Professor in the Centre for Health Economics, Monash University. He has published extensively on the economics of illicit drugs, smoking, alcohol, disability, cancer, the longitudinal measurement and evaluation of health inequalities and has led a large number of economic evaluations of healthcare interventions including alongside RCTs. He specialises in analysing large and complex data sets to improve health policy decisions with a focus on reducing health inequities.",
+  },
+  {
+    name: "Dr Shan Jiang",
+    role: "Co-Convenor",
+    affiliation: "MUCHE, Macquarie University",
+    photo: "https://ahes.org.au/wp-content/uploads/2026/01/shan-jiang_2024.jpg",
+    bio: "Dr Shan Jiang is a health economist at MUCHE (Macquarie University Centre for the Health Economy), based in Sydney, Australia. His research focuses on equity-informative economic evaluation, especially distributional cost-effectiveness analysis (DCEA), economic evaluation methodology, and advanced economic evaluation modelling, with 50+ peer-reviewed publications in journals such as JAMA Network Open, Genetics in Medicine, BMJ Global Health, Value in Health, and PharmacoEconomics. One publication was selected for the Value in Health Paper of the Year Award (2025). He is a Brocher Foundation Visiting Research Fellow and Adjunct Research Fellow at the Shanghai Health Development Research Center.",
+  },
+];
+
 const AIMS = [
   {
     icon: Lightbulb,
@@ -107,6 +131,37 @@ export default function AboutPage() {
             </CardHeader>
           </Card>
         ))}
+      </div>
+
+      {/* Convenors */}
+      <div className="mt-16">
+        <h2 className="text-2xl font-bold sm:text-3xl">SIG Convenors</h2>
+        <p className="mt-2 text-muted-foreground">
+          The SIG is convened by three health economists working on equity
+          across Australia.
+        </p>
+        <div className="mt-8 grid gap-6 md:grid-cols-3">
+          {CONVENORS.map((c) => (
+            <Card key={c.name} className="overflow-hidden pt-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={c.photo}
+                alt={c.name}
+                className="h-56 w-full object-cover"
+              />
+              <CardHeader>
+                <CardTitle className="text-lg">{c.name}</CardTitle>
+                <div className="text-sm font-semibold text-primary">{c.role}</div>
+                <CardDescription>{c.affiliation}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  {c.bio}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <Card className="mt-12 border-primary/20 bg-primary/5">
